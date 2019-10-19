@@ -1,0 +1,87 @@
+{% load static %}
+<!DOCTYPE html>
+<!-- saved from url=(0050)http://www.jq22.com/demo/jquery-Sharelink20151012/ -->
+<html lang="zh-CN">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>登陆</title>
+
+    {#静态文件的3种引用方式#}
+    <link rel="stylesheet" href="{% static 'login/css/style.css' %}">
+{#    <link rel="stylesheet" href="/statics/css/style.css">#}
+{#    <link rel="stylesheet" href="/statics/css/style.css">#}
+
+</head>
+<body>
+<div class="login-container">
+    <h1>欢迎来到爸爸的怀抱</h1>
+    <div class="connect">
+        <p style="left: 0%;">Link the world. Share to world.</p>
+    </div>
+{#    <form action="{% url "is_login" %}" method="post" id="loginForm"#}
+{#          novalidate="novalidate">#}
+{#        {% csrf_token %}#}
+{#        <div>#}
+{#            <input type="text" name="username" class="username" placeholder="用户名" autocomplete="off" >#}
+{#        </div>#}
+{#        <div>#}
+{#            <input type="password" name="password" class="password" placeholder="密码" oncontextmenu="return false"#}
+{#                   onpaste="return false">#}
+{#        </div>#}
+        <div>
+            {{ form.name }}<span>{{ form.errors.0 }}</span>
+        </div>
+
+        <div>
+            {{ form.pwd }}<span>{{ form.errors.0 }}</span>
+        </div>
+        <div>
+            <button id="submit" type="button">登 陆</button>
+        </div>
+{#    </form>#}
+    <a href="{% url "register" %}">
+        <div>
+            <button type="button" class="register-tis">还有没有账号？</button>
+        </div>
+    </a>
+</div>
+
+<script src="{% static 'login/js/jquery.min.js' %}"></script>
+<script src="{% static 'login/js/jquery.validate.min.js' %}"></script>
+<script src="{% static 'login/js/common.js' %}"></script>
+<script src="{% static 'login/js/supersized-init.js' %}"></script>
+<script src="{% static 'login/js/supersized.3.2.7.min.js' %}"></script>
+
+<ul id="supersized" class="quality" style="visibility: visible;">
+    <li class="slide-0 activeslide" style="visibility: visible; opacity: 1;"><a target="_blank"><img
+            src="{% static 'login/img/1.jpg' %}" style="width: 1904px; left: 0px; top: -151px; height: 1199.52px;"></a></li>
+    <li class="slide-1" style="visibility: visible; opacity: 1;"><a target="_blank"><img
+            src="../../statics/login/img/2.jpg" style="width: 1904px; left: 0px; top: -217.5px; height: 1332.8px;"></a>
+    </li>
+    <li class="slide-2 prevslide" style="visibility: visible; opacity: 1;"><a target="_blank"><img
+            src="{% static 'login/img/3.jpg' %}" style="width: 1904px; height: 1199.52px; left: 0px; top: -151px;"></a></li>
+</ul>
+
+<script>
+    $('#submit').click(function () {
+        var name = $('#id_name').val();
+        var pwd = $('#id_pwd').val();
+        $.ajax({
+            url:'{% url 'is_login'%}',
+            type:'post',
+            data:{'name':name,'pwd':pwd,'csrfmiddlewaretoken':'{{csrf_token}}'},
+            success:function (res) {
+                if (res.data === 1){
+                    location.href = "{% url 'admin_index' %}"
+                }else{
+                    alert("用户名或者密码错误！")
+                }
+            }
+        })
+
+    })
+</script>
+
+</body>
+</html>

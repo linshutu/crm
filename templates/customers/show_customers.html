@@ -1,0 +1,57 @@
+{% extends  'base.html'%}
+
+{% block title %}
+    <h3>客户信息展示页面</h3>
+{% endblock %}
+
+{% block content %}
+        <div class="col-md-10 col-md-offset-1">
+    <div>
+        <a href="{% url "add_customers" %}" class="btn btn-google">
+            添加客户
+        </a>
+    </div>
+
+        <div class="content" style="padding: 0 0;margin: 2px">
+            <table class="table  table-responsive  bg-yellow-gradient">
+        <thead>
+            <tr>
+                <th>id</th>
+                <th>qq</th>
+                <th>姓名</th>
+                <th>性别</th>
+                <th>手机号</th>
+                <th>咨询课程</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for field in customers_info %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ field.qq }}</td>
+                    <td>{{ field.name }}</td>
+                    <td>{{ field.sex }}</td>
+                    <td>{{ field.phone }}</td>
+                    <td>{{ field.course }}</td>
+                    <td>{{ field.status }}</td>
+                    <td>
+                        <a href="{% url  "edit_customers" field.pk %}" class="glyphicon glyphicon-pencil"></a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+        </div>
+    </div>
+{% endblock %}
+
+
+
+
+
+
+
+

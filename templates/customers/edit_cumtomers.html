@@ -1,0 +1,28 @@
+{% extends  'base.html' %}
+
+{% block title %}
+    <h3>修改客户信息页面</h3>
+{% endblock %}
+
+{% block content %}
+    <div class="">
+    <div class="col-md-6 col-md-offset-2 bg-gray">
+     <form class="form-horizontal" href="{% url "add_customers" %}" method="post" novalidate>
+        {% csrf_token %}
+         {% for field in  form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}" class="col-sm-2 control-label">{{ field.label }}</label>
+                <div class="col-sm-6">{{ field }}</div>
+                <div class="col-sm-2"><span class="text-danger">{{ field.errors.0 }}</span></div>
+            </div>
+        {% endfor %}
+         <br>
+        <button type="submit" class="danger bg-red-active col-md-offset-4 ">提交</button>&nbsp;&nbsp;&nbsp;&nbsp;
+        <a href="{% url "show_customers" %}"><button type="submit" class="danger bg-green-active ">取消</button></a>
+     </form>
+    </div>
+    </div>
+
+
+{% endblock %}
+
