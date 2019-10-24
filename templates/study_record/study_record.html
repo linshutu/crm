@@ -1,0 +1,85 @@
+{% extends  'base.html'%}
+{% load static %}
+{% load mytag %}
+
+{% block title %}
+    <h3>学习记录展示</h3>
+{% endblock %}
+
+{% block content %}
+
+    <div class="col-md-12 ">
+
+        <div class="dropdown bg-red-gradient col-md-offset-8" style="display: inline-block;padding: 2px;margin-bottom: 5px;">
+            <form href="{% url "mysite:show_enrollment_record" %}" method="get">
+                <select class="btn-box-tool bg-gray" id="search_field">
+                    <option selected="selected" value="name__contains">姓名</option>
+                </select>
+                <input class="search-input" id="txt_SearchText" name="keyword" type="text" autocomplete="off" placeholder="请输入关键字..."  maxlength="100" style="color: rgb(125, 125, 125);" value="{{ keyword|default:"" }}">
+                <button class="search-btn" type="submit"  id="site_search"><i class="fa fa-search"></i></button>
+            </form>
+        </div>
+    </div>
+
+
+    <form action="" method="post">
+        {{ formset.management_form}}  {# 一个标志，不然，保存数据的时候就会报错 #}
+        {% csrf_token %}
+
+        <div class="content" style="padding: 0 0;margin: 2px" id="customeres_info">
+            <table id="table" class="table  table-responsive  bg-yellow-gradient">
+                <thead>
+                    <tr>
+                        <th>选择</th>
+                        <th>id</th>
+                        <th>考勤</th>
+                        <th>本节成绩</th>
+                        <th>作业批语</th>
+                        <th>某节课程</th>
+                        <th>学员</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for field in formset %}
+                        <tr>
+                        {{ field.id }} {# 这个不会展示，就是传给后台的时候告诉后台修改哪条数据 #}
+                            <td><input type="checkbox" name="cids" value="{{ field.pk }}"></td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ field.attendance }}</td>
+                            <td>{{ field.score }}</td>
+                            <td>{{ field.homework_note }}</td>
+                            <td>{{ field.instance.course_record }}</td> {# 在前端显示纯文本 #}
+                            <td class="hidden">{{ field.course_record }}</td>{# 正真的数据，是传递给后台的，但是前台不能修改，所以在上面纯文本展示 #}
+                            <td>{{ field.instance.student }}</td>
+                            <td class="hidden">{{ field.student }}</td>
+                            <td>
+                                <a href="" > <i class="fa fa-edit fa-2x"></i> </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    <input type="submit" class="btn btn-success">
+    </form>
+
+        {{ page_html }}
+
+{% endblock %}
+
+{% block js %}
+    <script>
+        var search_field = '{{ search_field}}';
+        $("#search_field").val(search_field)
+
+    </script>
+{% endblock %}
+
+
+
+
+
+
+

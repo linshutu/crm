@@ -1,0 +1,91 @@
+{% extends  'base.html'%}
+{% load static %}
+{% load mytag %}
+
+{% block title %}
+    <h3>学生记录信息展示</h3>
+{% endblock %}
+  <link rel="stylesheet" href="{% static "plugins/font-awesome/css/font-awesome.min.css" %}">
+{% block content %}
+    <div class="col-md-12 ">
+        <div class="btn-google" style="display: inline-block;">
+            <a href="{% url "mysite:add_enrollment_record" %}" class="btn btn-google">
+                添加报名记录
+            </a>
+        </div>
+
+        <div class="dropdown bg-red-gradient col-md-offset-8" style="display: inline-block;padding: 2px;margin-bottom: 5px;">
+            <form href="{% url "mysite:show_enrollment_record" %}" method="get">
+                <select class="btn-box-tool bg-gray" id="search_field">
+                    <option selected="selected" value="name__contains">姓名</option>
+                </select>
+                <input class="search-input" id="txt_SearchText" name="keyword" type="text" autocomplete="off" placeholder="请输入关键字..."  maxlength="100" style="color: rgb(125, 125, 125);" value="{{ keyword|default:"" }}">
+                <button class="search-btn" type="submit"  id="site_search"><i class="fa fa-search"></i></button>
+            </form>
+        </div>
+    </div>
+
+
+    <form action="" method="post">
+        {% csrf_token %}
+    <div class="select2-choices">
+        <select name="action" id="" >
+            <option value="bulk_delete">批量删除</option>
+        </select>
+            <button class="btn btn-warning">go</button>
+    </div>
+        <div class="content" style="padding: 0 0;margin: 2px" id="customeres_info">
+            <table id="table" class="table  table-responsive  bg-yellow-gradient">
+                <thead>
+                    <tr>
+                        <th>选择</th>
+                        <th>id</th>
+                        <th>客户名称</th>
+                        <th>学校</th>
+                        <th>所在班级</th>
+                        <th>报名日期</th>
+                        <th>为什么报名</th>
+                        <th>期望</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for field in all_enrollment %}
+                        <tr>
+                            <td><input type="checkbox" name="cids" value="{{ field.pk }}"></td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ field.customer }}</td>
+                            <td>{{ field.school.name }}</td>
+                            <td>{{ field.enrolment_class }}</td>
+                            <td>{{ field.enrolled_date }}</td>
+                            <td>{{ field.why_us|default:'成为土豪' }}</td>
+                            <td>{{ field.your_expectation|default:"走上人生巅峰，迎娶白富美" }}</td>
+                            <td>
+                                <a href="{% reverse_url 'mysite:edit_enrollment_record' field.pk request %}" > <i class="fa fa-edit fa-2x"></i> </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+
+        {{ page_html }}
+
+{% endblock %}
+
+{% block js %}
+    <script>
+        var search_field = '{{ search_field}}';
+        $("#search_field").val(search_field)
+
+    </script>
+{% endblock %}
+
+
+
+
+
+
+

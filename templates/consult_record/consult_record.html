@@ -1,0 +1,88 @@
+{% extends  'base.html' %}
+{% load static %}
+{% load mytag %}
+
+{% block title %}
+    <h3> 跟进记录展示页面</h3>
+{% endblock %}
+  <link rel="stylesheet" href="{% static "plugins/font-awesome/css/font-awesome.min.css" %}">
+{% block content %}
+    <div class="col-md-12 ">
+        <div class="btn-google" style="display: inline-block;">
+            <a href="{% url "mysite:add_consult_record" %}" class="btn btn-google">
+                添加客户
+            </a>
+        </div>
+
+        <div class="dropdown bg-red-gradient col-md-offset-6" style="display: inline-block;padding: 2px;margin-bottom: 5px;">
+            <form action="" method="get">
+                <select class="btn-box-tool bg-gray" id="search_field">
+                    <option selected="selected" value="customer__name__contains">姓名</option>
+                </select>
+                <input class="search-input" id="txt_SearchText" name="keyword" type="text" autocomplete="off" placeholder="请输入关键字..."  maxlength="100" style="color: rgb(125, 125, 125);" value="{{ keyword|default:"" }}">
+                <button class="search-btn" type="submit"  id="site_search"><i class="fa fa-search"></i></button>
+            </form>
+        </div>
+    </div>
+
+    <form action="" method="post">
+        {% csrf_token %}
+        <select name="action" id="">
+            <option value="bulk_delete">批量删除</option>
+        </select>
+        <button class="btn btn-warning">go</button>
+
+        <div class="content" style="padding: 0 0;margin: 2px" id="customeres_info">
+            <table id="table" class="table  table-responsive  bg-yellow-gradient">
+                <thead>
+                    <tr>
+                        <th>选择</th>
+                        <th>序号</th>
+                        <th>所咨询客户</th>
+                        <th>跟进内容</th>
+                        <th>跟进状态</th>
+                        <th>跟进人</th>
+                        <th>跟进日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for field in all_records %}
+                        <tr>
+                            <td><input type="checkbox" name="cids" value="{{ field.pk }}"></td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ field.customer.name}}</td>
+                            <td>{{ field.note|default:"他很懒，什么也没写..." }}</td>
+                            <td>{{ field.get_status_display }}</td>
+                            <td>{{ field.consultant.username }}</td>
+                            <td>{{ field.date|date:'Y-m-d' }}</td>
+                            <td>
+
+                                <a href="{% reverse_url 'mysite:edit_consult_record' field.pk  request %}" > <i class="fa fa-edit fa-2x"></i> </a>
+
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+        {{ page_html }}
+
+{% endblock %}
+
+{% block js %}
+    <script>
+        var search_field = '{{ search_field}}';
+        $("#search_field").val(search_field)
+
+    </script>
+{% endblock %}
+
+
+
+
+
+
+

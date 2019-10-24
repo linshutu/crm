@@ -1,0 +1,274 @@
+from django.shortcuts import render,redirect,reverse,HttpResponse
+from django.http import JsonResponse
+from django.db.models import Q
+from django.core.paginator import Paginator,PageNotAnInteger,EmptyPage
+from django.views import View
+import copy
+
+from mysite import forms
+from mysite import models
+from utils import hash_pwd
+from utils.page import Page
+from django.conf import settings
+
+
+def login(request):
+	"""
+	登陆
+	:param request:
+	:return:
+	"""
+	form = forms.UserForms()
+	return render(request, 'login/login.html', {'form':form})
+
+def is_login(request):
+	"""
+	处理登陆提交的数据，判断登陆是否成功
+	:param request:
+	:return:
+	"""
+	form = forms.UserForms(request.POST)
+	if form.is_valid():
+		data = form.cleaned_data
+		has_password= hash_pwd.has_password(data['pwd'])
+		ret = models.UserInfo.objects.filter(password=has_password).first()
+		if ret:
+			request.session['is_login'] = "user"
+			request.session['username'] = form.cleaned_data.get("name")
+			status = {"data": 1}
+			return JsonResponse(status)
+		else:
+			status = {"data": 0}
+			return JsonResponse(status)
+	else:
+		return render(request, "login/login.html", {"form": form})
+
+def register(request):
+	"""
+	注册
+	:param request:
+	:return:
+	"""
+	form = forms.RegisterForm()    #注意，request.POST是前台传过来的，我们能如果在这里加的话，前端页面会展示出为空的错误
+	return render(request, 'login/register.html', {"form":form})
+
+def add_register(request):
+	"""
+	处理注册提交的数据，保存到数据库
+	:param request:
+	:return:
+	"""
+	form = forms.RegisterForm(request.POST)
+	if form.is_valid():
+		data = form.cleaned_data
+		#清洗数据
+		data.pop("re_password")
+		data['password'] = hash_pwd.has_password(data.get('password'))
+		#添加必要数据
+		data['is_active'] = 1
+		#格式化储存
+		models.UserInfo.objects.create(
+			**data
+		)
+		return redirect('login')
+	else:
+		#把前端提交的包含错误信息的对象返回到前端页面
+		return render(request, 'login/register.html', {"form":form})
+
+def admin_index(request):
+	"""
+	后台主界面
+	:param request:
+	:return:
+	"""
+	return render(request, "index.html", )
+
+class ShowCustomers(View):
+	"""
+	展示客户信息页面+分页+站内客户信息搜索+公私户+搜索编辑返回原页面
+	:param request:
+	:return:
+	"""
+	def get(self,request):
+		recv_data = copy.copy(request.GET)
+
+		current_page_number = request.GET.get("page")  #当前页码
+		search_field = request.GET.get('search_field') #所搜条件
+		if search_field == None:
+			search_field = 'qq__contains'
+		keyword = request.GET.get("keyword")
+		all_customers = None
+		message = None
+		if keyword:
+			q = Q()
+			q.children.append([search_field,keyword])
+			all_customers = models.Customer.objects.filter(q)
+		else:
+			if request.path == reverse('show_customers'):
+				all_customers = models.Customer.objects.filter(consultant__isnull=True)
+				message= "公有"
+				change_message = "公有客户转私有客户"
+			else:
+				all_customers = models.Customer.objects.filter(consultant__username=request.session.get("username"))
+				message = "私有"
+				change_message = "私有客户转公有客户"
+
+		total_count = all_customers.count()
+		per_page_count = settings.PER_PAGE_COUNT
+		page_number_show = settings.PAGE_NUMBER_SHOW
+
+		page_obj = Page(current_page_number, total_count, page_number_show,per_page_count,recv_data)
+		all_customers = all_customers[page_obj.start_data_number:page_obj.end_data_number]
+		page_html = page_obj.page_html_func()
+		return render(request, 'customers/show_customers.html', {'all_customers': all_customers, "page_html": page_html,"keyword":keyword,'message':message,'search_field':search_field})
+
+	def post(self,request):
+		action= request.POST.get('action')
+		cids= request.POST.getlist('cids')  #选中的客户
+		customer_list = models.Customer.objects.filter(id__in=cids)
+
+		if hasattr(self,action):
+			ret = getattr(self,action)(request,customer_list)
+			if ret:
+				return ret
+			else:
+				return redirect(request.path)
+		else:
+			return HttpResponse("你的方法不对")
+
+	def bulk_delete(self,request, customer_list):
+		"""
+		批量删除选中的客户
+		:param self:
+		:param request:
+		:param customer_list:
+		:return:
+		"""
+		customer_list.delete()
+		return redirect(request.path)
+
+	def reverse_gs(self,requset,customer_list):
+		"""
+		将公有客户批量转换成私有客户
+		:param requset:
+		:param customer_list:
+		:return:
+		"""
+		user_obj= models.UserInfo.objects.get(username=requset.session.get('username'))
+		customer_list.update(consultant_id=user_obj.id)
+
+	def reverse_sg(self,request,customer_list):
+		"""
+		将客户私有转成公有
+		:param request:
+		:param customer_list:
+		:return:
+		"""
+		customer_list.update(consultant=None)
+
+
+
+
+def add_customers(request):
+	"""
+	增加客户信息页面
+	:param request:
+	:return:
+	"""
+	if request.method == "GET":
+		form = forms.CustomersModelsForm()
+		return render(request,'customers/add_customers.html',{"form":form})
+	else:
+		form = forms.CustomersModelsForm(request.POST)
+		if form.is_valid():
+			form.save()
+			return redirect('show_customers')
+		else:
+			return render(request,'customers/add_customers.html',{"form":form})
+
+def edit_customers(request,id):
+	"""
+	修改客户信息页面
+	:param request:
+	:return:
+	"""
+	old_obj = models.Customer.objects.filter(pk=id).first()
+	if request.method == "GET":
+		old_form = forms.CustomersModelsForm(instance=old_obj)
+		return render(request,'customers/edit_cumtomers.html',{"form":old_form})
+	else:
+		next_path = request.GET.get('next')
+		new_form = forms.CustomersModelsForm(request.POST,instance=old_obj)
+		if new_form.is_valid():
+			new_form.save()
+			print (next_path)
+			return redirect(next_path)
+		else:
+			return render(request,'customers/edit_cumtomers.html',{"form":new_form})
+
+'''
+结合add和edit：
+def addEditCustomer(request,n=None):
+    old_obj = models.Customer.objects.filter(pk=n).first()
+    label  = '编辑页面' if n else '添加页面'
+
+
+    if request.method == 'GET':
+        book_form_obj = myforms.CustomerModelForm(instance=old_obj)
+        return render(request, 'customer/editcustomer.html', {'book_form_obj': book_form_obj,'label':label})
+
+    else:
+        book_form_obj = myforms.CustomerModelForm(request.POST,instance=old_obj)
+
+        if book_form_obj.is_valid():
+            book_form_obj.save()
+            return redirect('customers')
+        else:
+
+            return render(request, 'customer/editcustomer.html', {'book_form_obj': book_form_obj,'label':label})
+'''
+
+def logout(request):
+	"""
+	退出登陆
+	:param request:
+	:return:
+	"""
+	if request.session.get("is_login"):
+		request.session.flush()
+	return redirect("login")
+
+
+def search_customers(request):
+	"""
+	:param request:
+	:return:
+	"""
+	all_customers = models.Customer.objects.all()
+	paginator = Paginator(all_customers,20)
+
+	page = request.GET.get('page')
+	contacts = None
+	try:
+		contacts = paginator.page(page)
+	except PageNotAnInteger:
+		# 如果请求的页数不是整数，返回第一页。
+		contacts = paginator.page(1)
+	except EmptyPage:
+		# 如果请求的页数不在合法的页数范围内，返回结果的最后一页。
+		contacts = paginator.page(paginator.num_pages)
+	return render(request,'customers/show_customers.html',{"contacts":contacts,'all_customers':all_customers})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
