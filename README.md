@@ -205,9 +205,149 @@ recv_data = copy.copy(request.GET)
 
 因为queryDict对象是不能改变里面的数据的，但是copy之后的对象我们就可以对他进行操作了（因为它有一个参数mutil=False）表示不可修改，说白了就是修改这个参数，把它改成True
 
+### 模块四：公户和私户之间批量转换+编辑某一页面数据并返回原页面
 
+### 模块五：bug-公转私的时候不能同时操作（加锁）
 
+### 模块六：课程记录表的批量生成学习记录+批量编辑统一保存
 
+这个模块难点就在学生记录的批量生成上面：和批量删除一样，在我们的批处理里面创建一个option的标签，用来临界我们的批量生成学生记录的action。
 
+我们取得前台发来的数据是很简单的，我们就需要两个字段：一个action（用来标记这个批量生成学生记录的选项），一个cids（它是一个列表，里面包含了前端页面勾选的多条记录）。
 
+我们后台拿到了这两个数据，怎么去处理呢？我们的想法很简单，和批量删除不就是一样么，通过action提交上来的值（一个字符串）来作为条件进行反射找视图类里面对应的函数，我们的函数里面就通过cids里面的参数进行数据的查找并更新不就完事了吗！！！其实思路是对的，但是在实现的时候我们发现一个问题就是，我们知道这个课程的pk也不管用啊，我们的课程里面没有和学生表做管理啊。是不是很气人，没错，我们怎么去解决这个问题呢？
 
+那就找第三方的桥梁呗！我们发现我们的课程表关联着班级表，这个班级表里面关联着学生表，那么我们就可以通过这个课程表先找到这个班级表
+
+```python
+course_create_list = models.CourseRecord.objects.filter(pk__in=cids)
+```
+
+然后，通过班级表反向找到已经报名的学生
+
+```python
+student_objs = course_record.re_class.customer_set.all().exclude(status='unregistered')
+```
+
+这样，我们通过for循环把每一个学生的信息都生成对象都放到一个列表里面，通过bulk_create来批量创建这个学生学习记录
+
+编辑并统一保存：
+
+我们一开始看到这个问题的时候会很懵，批量编辑统一保存是什么鬼？其实我们知道了这个东西之后，这个问题就迎刃而解了
+
+```
+from django.forms.models import modelformsert_factory
+```
+
+没错，这个是ModelForm的工厂函数，它的作用是什么呢？
+
+我们知道，我们的ModelForm可以在最前端页面自动为我们生成标签，然后产生一个编辑或者录入信息的form表单。我们的这个ModelForm也是的功能，不过不同的一点就是：
+
+一个在使用方法上它和ModelForm是有一点区别的，毕竟ModelForm是编辑一条消息的，但是ModelFormSet是同时编辑多条信息的。
+
+那么，我们就走进这个工厂模块，看看他是怎么操作的。
+
+我们的ModelForm在使用之前是不是需要在form文件里面定义一个类去创建我们的类对象，那么，ModelFormSet的创建和我们的ModelForm是一模一样的。
+
+```python
+class StudyRecordModelForm(forms.ModelForm):
+	"""
+	批量操作学生记录
+	"""
+	class Meta:
+		model = models.StudyRecord
+		fields = "__all__"
+
+	def __init__(self,*args,**kwargs):
+		super().__init__(*args,**kwargs)
+
+		for field_name, field in self.fields.items():
+			field.widget.attrs.update({"class": "form-control"})
+```
+
+然后在我们的视图里面是实例化这个对象，区别就产生了
+
+```python
+formset_obj = modelformset_factory(model=models.StudyRecord,form=forms.StudyRecordModelForm,extra =0)
+```
+
+我们发现在实例化的时候有几个参数，第一个参数model是指定我们的数据表，就是在页面上显示的数据；form参数指定的就是我们在form文件下面创建的类对象，最后一个extra是dj为我们人性化考虑的一个内容，我们在使用的时候就会明白。按理说，对象创建好了，是不是就直接给前端页面去渲染啊。其实不是这样的，下面还要有一步操作：
+
+```python
+formset= formset_obj(queryset=models.StudyRecord.objects.filter(course_record_id=course_id))
+```
+
+这不就是和过滤吗，没错哦，这就是一个我们的业务逻辑，我们的课程信息是有很多的，我们需要展示哪些内容，我们是可以根据前端页面返回的course_id来查询我们需要展示的那一部分的数据。
+
+现在，我们把数据给前端页面，
+
+```html
+ <form action="" method="post">
+        {{ formset.management_form}}  {# 一个标志，不然，保存数据的时候就会报错 #}
+        {% csrf_token %}
+
+        <div class="content" style="padding: 0 0;margin: 2px" id="customeres_info">
+            <table id="table" class="table  table-responsive  bg-yellow-gradient">
+                <thead>
+                    <tr>
+                        <th>选择</th>
+                        <th>id</th>
+                        <th>考勤</th>
+                        <th>本节成绩</th>
+                        <th>作业批语</th>
+                        <th>某节课程</th>
+                        <th>学员</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for field in formset %}
+                        <tr>
+                        {{ field.id }} {# 这个不会展示，就是传给后台的时候告诉后台修改哪条数据 #}
+                            <td><input type="checkbox" name="cids" value="{{ field.pk }}"></td>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ field.attendance }}</td>
+                            <td>{{ field.score }}</td>
+                            <td>{{ field.homework_note }}</td>
+                            <td>{{ field.instance.course_record }}</td> {# 在前端显示纯文本 #}
+                            <td class="hidden">{{ field.course_record }}</td>{# 正真的数据，是传递给后台的，但是前台不能修改，所以在上面纯文本展示 #}
+                            <td>{{ field.instance.student }}</td>
+                            <td class="hidden">{{ field.student }}</td>
+                            <td>
+                                <a href="" > <i class="fa fa-edit fa-2x"></i> </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+```
+
+这里面有连个重要的点，就是我们有一些字段不想让修改，而是以纯文本的方式展示，我们该怎么做？很简单，我们就可以写两个标签，一个用以显示存文本（使用这个字段instance），一个隐藏，以实际的文本格式，那么疑问就来了？我在前端页面只要显示的数据不就完了，干嘛白费力气去隐藏啊？其实原因很简单，就是因为马上床数据给后端储存的时候，我们需要这些数据，即使没有改动我们也要有，不然就会报错。
+
+还有一点就是，我们是批量编辑的数据，那么到后台怎么去区分这些数据呢，谁是谁呢？对不对，那么这里就有一个东西
+
+```
+{{ field.id }} 
+```
+
+它就是一个标记，放在每一个生成的table的最前面，它是不在前端页面显示的，在往后台传数据的时候一并传回去，在写进数据库的时候，它的用处就非常大了，就能分辨谁是谁了。
+
+还有一个很重要的
+
+```
+{{ formset.management_form}} 
+```
+
+在form表单里面一定要有这个数据，它就是一个标记，它就是告诉后台，我是使用ModelFormSET做的，然后，后台收到这个标记之后，就知道怎么去处理数据了。不然就会报错，什么数据窜改什么的。
+
+最后就是这个统一保存，我就很好奇，这个统一保存的操作是不是很神奇。答案：funk，
+
+```python
+formset_obj = modelformset_factory(model=models.StudyRecord,form=forms.StudyRecordModelForm,extra =0)
+formset = formset_obj(request.POST)
+	if formset.is_valid():   
+        formset.save()
+```
+
+formset.save()，就不就是ModelForm的储存方式一样的吗？是呀，谁说不是呢。其实反过来想一想，也确实应该这样，毕竟封装的思想就是怎么方便别人（恶心自己）怎么来么。是不是！！！
